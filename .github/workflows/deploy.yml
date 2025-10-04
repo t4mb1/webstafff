@@ -1,23 +1,43 @@
-- run: npm ci && npm run build
+name: deploy
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
-# Sella versión dentro del build
-- name: Stamp version
-  run: |
-    echo "sha=${GITHUB_SHA}" > dist/DEPLOY_TAG.txt
-    date -u +"time=%Y-%m-%dT%H:%M:%SZ" >> dist/DEPLOY_TAG.txt
+jobs:
+  prod:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-# Carga clave y confía en el host
-- uses: webfactory/ssh-agent@v0.9.0
-  with: { ssh-private-key: ${{ secrets.VPS_SSH_KEY }} }
-- run: |
-    mkdir -p ~/.ssh
-    ssh-keyscan -p 22 ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-# Publica EXACTAMENTE al docroot
-- name: Rsync dist -> VPS
-  run: rsync -rltgoDzvO --delete dist/ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/srv/web_staff/html/
+      - run: npm ci
+      - run: npm run build
 
-# Reinicia y verifica
-- run: |
-    ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "docker restart web_staff"
-    curl -s https://staff.tamburiniserviteca.cl/DEPLOY_TAG.txt
+      - name: Stamp version
+        run: |
+          echo "sha=${GITHUB_SHA}" > dist/DEPLOY_TAG.txt
+          date -u +"time=%Y-%m-%dT%H:%M:%SZ" >> dist/DEPLOY_TAG.txt
+
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Trust host
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p 22 ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync dist -> VPS
+        run: |
+          rsync -rltgoDzvO --delete dist/ \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/srv/web_staff/html/
+
+      - name: Restart + verify
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "docker restart web_staff"
+          curl -s https://staff.tamburiniserviteca.cl/DEPLOY_TAG.txt || true
