@@ -1,8 +1,7 @@
-diff --git a/src/integrations/supabase/client.ts b/src/integrations/supabase/client.ts
-index ba8065cefb2ca5db463e796a9db35ac8f5459478..f59e014b0747241c46cc5960da3521428ae987bd 100644
---- a/src/integrations/supabase/client.ts
-+++ b/src/integrations/supabase/client.ts
-@@ -1,61 +1,83 @@
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+
+type QueryOperation = 'select' | 'insert' | 'update' | 'rpc';
+
  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
  
 -type QueryOperation = 'select' | 'insert' | 'update';
