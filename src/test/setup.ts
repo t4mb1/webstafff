@@ -61,15 +61,14 @@ Object.defineProperty(window, 'sessionStorage', {
 // Mock environment variables
 vi.mock('import.meta', () => ({
   env: {
-    VITE_SUPABASE_URL: 'https://test.supabase.co',
-    VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+    VITE_API_BASE_URL: 'http://localhost:4000',
     VITE_APP_NAME: 'Serviteca Tamburini Test',
   },
 }))
 
 // Global test utilities
 global.testUtils = {
-  mockSupabaseResponse: (data: any, error: any = null) => ({
+  mockDatabaseResponse: (data: any, error: any = null) => ({
     data,
     error,
   }),

@@ -1,11 +1,23 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
+interface AuthSession {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+  user: AuthUser;
+}
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: AuthSession | null;
   loading: boolean;
   signIn: (password: string) => Promise<{ data: any; error: any }>;
   signUp: (email: string, password: string, userData?: { nombre?: string; apellido?: string }) => Promise<{ data: any; error: any }>;
@@ -23,29 +35,24 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    const storedSession = typeof window !== 'undefined' ? localStorage.getItem('serviteca_session') : null;
+    if (storedSession) {
+      try {
+        const parsed: AuthSession = JSON.parse(storedSession);
+        setSession(parsed);
+        setUser(parsed.user);
+      } catch (error) {
+        console.warn('Unable to parse stored session', error);
+        localStorage.removeItem('serviteca_session');
       }
-    );
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
   const signIn = async (password: string) => {
@@ -53,14 +60,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Verificar contraseña fija para Serviteca Tamburini
       if (password === 'serviteca+1995') {
         // Simular autenticación exitosa
-        const mockUser = {
+        const mockUser: AuthUser = {
           id: 'serviteca-admin',
           email: 'admin@serviteca.com',
-          user_metadata: { name: 'Administrador Serviteca' }
+          name: 'Administrador Serviteca',
         };
-        
+
         // Crear sesión simulada
-        const mockSession = {
+        const mockSession: AuthSession = {
           access_token: 'mock-token',
           refresh_token: 'mock-refresh',
           expires_in: 3600,
@@ -68,8 +75,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           user: mockUser
         };
 
-        setUser(mockUser as any);
-        setSession(mockSession as any);
+        setUser(mockUser);
+        setSession(mockSession);
+
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('serviteca_session', JSON.stringify(mockSession));
+        }
 
         toast({
           title: "Acceso autorizado",
@@ -92,23 +103,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, userData?: { nombre?: string; apellido?: string }) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: userData
-        }
-      });
-
-      if (error) throw error;
-
+      console.warn('Registro de usuarios no está habilitado en esta demo local.');
       toast({
-        title: "Registro exitoso",
-        description: "Por favor verifica tu email para completar el registro",
+        title: "Registro no disponible",
+        description: "Contacta al administrador para crear nuevas cuentas.",
+        variant: "destructive",
       });
 
-      return { data, error: null };
+      return { data: null, error: new Error('Registro no disponible en la versión local') };
     } catch (error: any) {
       toast({
         title: "Error de registro",
@@ -121,8 +123,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      setUser(null);
+      setSession(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('serviteca_session');
+      }
 
       toast({
         title: "Sesión cerrada",
