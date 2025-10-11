@@ -1,4 +1,16 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+const resolveDefaultBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin;
+  }
+
+  return 'http://localhost:4000';
+};
+
+const API_BASE_URL = resolveDefaultBaseUrl().replace(/\/$/, '');
 
 export type QueryOperation = 'select' | 'insert' | 'update' | 'rpc';
 
@@ -41,7 +53,7 @@ class LocalDatabaseClient {
   private readonly baseUrl: string;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.baseUrl = baseUrl;
   }
 
   from(table: string) {
@@ -73,7 +85,11 @@ class LocalDatabaseClient {
       const body = contentType && contentType.includes('application/json') ? await response.json() : {};
 
       if (!response.ok) {
-        const message = body?.error || `Database request failed with status ${response.status}`;
+        const message =
+          body?.error ||
+          (response.status === 0
+            ? 'No se pudo establecer conexión con el servidor de datos.'
+            : `Database request failed with status ${response.status}`);
         return { data: null as T, error: new Error(message) };
       }
 
@@ -84,10 +100,18 @@ class LocalDatabaseClient {
       return { data: (body?.data ?? null) as T, error: null };
     } catch (error) {
       if (error instanceof Error) {
-        return { data: null as T, error };
+        return {
+          data: null as T,
+          error: new Error(
+            error.message || 'No se pudo completar la solicitud con el servidor de datos.',
+          ),
+        };
       }
 
-      return { data: null as T, error: new Error('Unexpected error executing database request') };
+      return {
+        data: null as T,
+        error: new Error('Unexpected error executing database request'),
+      };
     }
   }
 }

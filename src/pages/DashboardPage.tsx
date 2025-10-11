@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { database } from '@/integrations/database/client'
 import { useToast } from '@/hooks/use-toast'
-import { 
-  Car, 
-  Calendar, 
-  Package, 
-  Users, 
-  AlertTriangle, 
+import {
+  Calendar,
+  Package,
+  Users,
+  AlertTriangle,
   TrendingUp,
   Clock,
   CheckCircle,
@@ -47,7 +46,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -71,7 +70,7 @@ export function DashboardPage() {
 
       setAlertasInventario(alertasData || [])
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading dashboard data:', error)
       toast({
         title: 'Error',
@@ -81,20 +80,20 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   useEffect(() => {
-    loadDashboardData()
-  }, [])
+    void loadDashboardData()
+  }, [loadDashboardData])
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="p-8">
+        <div className="animate-pulse space-y-6">
+          <div className="h-10 bg-slate-200 rounded w-1/3" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              <div key={i} className="h-36 rounded-lg bg-slate-200" />
             ))}
           </div>
         </div>
@@ -103,11 +102,13 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-green-700">Dashboard</h1>
-          <p className="text-gray-600">Resumen general de Serviteca Tamburini</p>
+          <h1 className="text-4xl font-extrabold text-slate-900">Dashboard</h1>
+          <p className="mt-1 text-lg text-slate-600">
+            Resumen general de Serviteca Tamburini
+          </p>
         </div>
         <Button
           variant="outline"
@@ -120,54 +121,54 @@ export function DashboardPage() {
       </div>
 
       {/* Estadísticas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-green-200">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-indigo-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">Citas Hoy</CardTitle>
-            <Calendar className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-base font-semibold text-indigo-700">Citas Hoy</CardTitle>
+            <Calendar className="h-5 w-5 text-indigo-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">{stats.citas_hoy}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-3xl font-bold text-slate-900">{stats.citas_hoy}</div>
+            <p className="text-sm text-slate-600">
               Citas programadas para hoy
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-red-200">
+        <Card className="border-rose-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-red-700">Órdenes Activas</CardTitle>
-            <Clock className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-base font-semibold text-rose-700">Órdenes Activas</CardTitle>
+            <Clock className="h-5 w-5 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-700">{stats.ordenes_abiertas}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-3xl font-bold text-slate-900">{stats.ordenes_abiertas}</div>
+            <p className="text-sm text-slate-600">
               Órdenes en proceso
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200">
+        <Card className="border-sky-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">Clientes</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-base font-semibold text-sky-700">Clientes</CardTitle>
+            <Users className="h-5 w-5 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-700">{stats.clientes_total}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-3xl font-bold text-slate-900">{stats.clientes_total}</div>
+            <p className="text-sm text-slate-600">
               Total de clientes registrados
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-orange-200">
+        <Card className="border-amber-200 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-orange-700">Servicios del Mes</CardTitle>
-            <CheckCircle className="h-4 w-4 text-orange-600" />
+            <CardTitle className="text-base font-semibold text-amber-700">Servicios del Mes</CardTitle>
+            <CheckCircle className="h-5 w-5 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-700">{stats.servicios_mes}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-3xl font-bold text-slate-900">{stats.servicios_mes}</div>
+            <p className="text-sm text-slate-600">
               Servicios completados
             </p>
           </CardContent>
@@ -175,9 +176,9 @@ export function DashboardPage() {
       </div>
 
       {/* Ingresos del mes */}
-      <Card className="border-green-200 bg-green-50">
+      <Card className="border-indigo-200 bg-indigo-50 shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-700">
+          <CardTitle className="flex items-center gap-3 text-indigo-800">
             <TrendingUp className="h-5 w-5" />
             Ingresos del Mes
           </CardTitle>
@@ -186,10 +187,10 @@ export function DashboardPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-green-700">
+          <div className="text-4xl font-extrabold text-slate-900">
             ${stats.ingresos_mes?.toLocaleString('es-CL') || '0'}
           </div>
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="mt-3 text-base text-slate-600">
             Basado en {stats.servicios_mes} servicios completados
           </p>
         </CardContent>
@@ -197,9 +198,9 @@ export function DashboardPage() {
 
       {/* Alertas de inventario */}
       {stats.inventario_bajo > 0 && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-rose-200 bg-rose-50 shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
+            <CardTitle className="flex items-center gap-3 text-rose-800">
               <AlertTriangle className="h-5 w-5" />
               Alertas de Inventario ({stats.inventario_bajo})
             </CardTitle>
@@ -210,20 +211,20 @@ export function DashboardPage() {
           <CardContent>
             <div className="space-y-3">
               {alertasInventario.map((alerta) => (
-                <Alert key={alerta.id} className="border-red-200">
+                <Alert key={alerta.id} className="border-rose-200">
                   <Package className="h-4 w-4" />
                   <AlertDescription className="flex justify-between items-center">
                     <div>
-                      <span className="font-medium">{alerta.nombre}</span>
+                      <span className="text-base font-semibold text-slate-900">{alerta.nombre}</span>
                       <Badge variant="outline" className="ml-2 text-xs">
                         {alerta.categoria}
                       </Badge>
                     </div>
                     <div className="text-right">
-                      <span className="text-red-600 font-medium">
+                      <span className="font-semibold text-rose-700">
                         Stock: {alerta.stock_actual}
                       </span>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-slate-500">
                         Mínimo: {alerta.stock_minimo}
                       </p>
                     </div>
@@ -236,10 +237,10 @@ export function DashboardPage() {
       )}
 
       {/* Resumen rápido */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-green-200">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-green-700">Estado del Taller</CardTitle>
+            <CardTitle className="text-xl font-semibold text-slate-900">Estado del Taller</CardTitle>
             <CardDescription>
               Resumen del estado actual de operaciones
             </CardDescription>
@@ -264,9 +265,9 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-red-200">
+        <Card className="border-slate-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-red-700">Rendimiento del Mes</CardTitle>
+            <CardTitle className="text-xl font-semibold text-slate-900">Rendimiento del Mes</CardTitle>
             <CardDescription>
               Métricas de productividad mensual
             </CardDescription>
