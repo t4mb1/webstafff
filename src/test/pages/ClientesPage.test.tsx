@@ -3,9 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { ClientesPage } from '@/pages/ClientesPage'
 
-// Mock Supabase
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
+// Mock database client
+vi.mock('@/integrations/database/client', () => ({
+  database: {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
         order: vi.fn(() => ({

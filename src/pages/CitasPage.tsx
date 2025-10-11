@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/tables/DataTable'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 import { Plus, Edit, Calendar as CalendarIcon, Clock } from 'lucide-react'
 
 interface Cita {
@@ -133,7 +133,7 @@ export function CitasPage() {
   const loadCitas = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      const { data, error } = await database
         .from('citas')
         .select(`
           *,
@@ -172,7 +172,7 @@ export function CitasPage() {
 
   const handleConfirm = async (citaId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await database
         .from('citas')
         .update({ estado: 'confirmada' })
         .eq('id', citaId)

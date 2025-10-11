@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { 
   Car, 
   Calendar, 
@@ -51,32 +51,32 @@ export const Dashboard: React.FC = () => {
     try {
       // Citas de hoy
       const today = new Date().toISOString().split('T')[0];
-      const { data: citasHoy } = await supabase
+      const { data: citasHoy } = await database
         .from('citas_2025_10_03_22_29')
         .select('*')
         .gte('fecha_hora', `${today}T00:00:00`)
         .lt('fecha_hora', `${today}T23:59:59`);
 
       // Órdenes abiertas
-      const { data: ordenesAbiertas } = await supabase
+      const { data: ordenesAbiertas } = await database
         .from('ordenes_trabajo_2025_10_03_22_29')
         .select('*')
         .in('estado', ['abierta', 'en_proceso']);
 
       // Total de clientes
-      const { data: clientes } = await supabase
+      const { data: clientes } = await database
         .from('clientes_2025_10_03_22_29')
         .select('id');
 
       // Inventario con stock bajo
-      const { data: inventarioBajo } = await supabase
+      const { data: inventarioBajo } = await database
         .from('inventario_2025_10_03_22_29')
         .select('*')
         .lt('stock_actual', 10); // Consideramos stock bajo cuando es menor a 10
 
       // Servicios completados este mes
       const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-      const { data: serviciosCompletados } = await supabase
+      const { data: serviciosCompletados } = await database
         .from('ordenes_trabajo_2025_10_03_22_29')
         .select('*')
         .eq('estado', 'completada')

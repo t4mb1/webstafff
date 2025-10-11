@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { Plus, Calendar as CalendarIcon, Clock, User, Car } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -86,7 +86,7 @@ export const Citas: React.FC = () => {
   const loadData = async () => {
     try {
       // Cargar citas con información relacionada
-      const { data: citasData } = await supabase
+      const { data: citasData } = await database
         .from('citas_2025_10_03_22_29')
         .select(`
           *,
@@ -108,19 +108,19 @@ export const Citas: React.FC = () => {
         .order('fecha_hora', { ascending: true });
 
       // Cargar clientes
-      const { data: clientesData } = await supabase
+      const { data: clientesData } = await database
         .from('clientes_2025_10_03_22_29')
         .select('id, nombre, apellido')
         .order('nombre');
 
       // Cargar vehículos
-      const { data: vehiculosData } = await supabase
+      const { data: vehiculosData } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select('id, patente, marca, modelo, cliente_id')
         .order('patente');
 
       // Cargar empleados
-      const { data: empleadosData } = await supabase
+      const { data: empleadosData } = await database
         .from('empleados_2025_10_03_22_29')
         .select('id, nombre, apellido')
         .eq('activo', true)
@@ -165,7 +165,7 @@ export const Citas: React.FC = () => {
         estado: 'programada'
       };
 
-      const { error } = await supabase
+      const { error } = await database
         .from('citas_2025_10_03_22_29')
         .insert([citaData]);
 
@@ -190,7 +190,7 @@ export const Citas: React.FC = () => {
 
   const handleUpdateEstado = async (citaId: string, nuevoEstado: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await database
         .from('citas_2025_10_03_22_29')
         .update({ estado: nuevoEstado })
         .eq('id', citaId);

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { Plus, FileText, Car, User, Clock } from 'lucide-react';
 
 interface OrdenTrabajo {
@@ -114,7 +114,7 @@ export const OrdenesTrabajo: React.FC = () => {
   const loadData = async () => {
     try {
       // Cargar órdenes de trabajo
-      const { data: ordenesData } = await supabase
+      const { data: ordenesData } = await database
         .from('ordenes_trabajo_2025_10_03_22_29')
         .select(`
           *,
@@ -136,7 +136,7 @@ export const OrdenesTrabajo: React.FC = () => {
         .order('fecha_inicio', { ascending: false });
 
       // Cargar vehículos con información del cliente
-      const { data: vehiculosData } = await supabase
+      const { data: vehiculosData } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select(`
           id,
@@ -152,13 +152,13 @@ export const OrdenesTrabajo: React.FC = () => {
         .order('patente');
 
       // Cargar clientes
-      const { data: clientesData } = await supabase
+      const { data: clientesData } = await database
         .from('clientes_2025_10_03_22_29')
         .select('id, nombre, apellido')
         .order('nombre');
 
       // Cargar empleados
-      const { data: empleadosData } = await supabase
+      const { data: empleadosData } = await database
         .from('empleados_2025_10_03_22_29')
         .select('id, nombre, apellido')
         .eq('activo', true)
@@ -201,7 +201,7 @@ export const OrdenesTrabajo: React.FC = () => {
         estado: 'abierta'
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await database
         .from('ordenes_trabajo_2025_10_03_22_29')
         .insert([ordenData])
         .select()
@@ -234,7 +234,7 @@ export const OrdenesTrabajo: React.FC = () => {
         updateData.fecha_completada = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      const { error } = await database
         .from('ordenes_trabajo_2025_10_03_22_29')
         .update(updateData)
         .eq('id', ordenId);

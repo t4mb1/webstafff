@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { Plus, Search, Edit, Eye } from 'lucide-react';
 
 interface Cliente {
@@ -70,12 +70,12 @@ export const ClientesVehiculos: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const { data: clientesData } = await supabase
+      const { data: clientesData } = await database
         .from('clientes_2025_10_03_22_29')
         .select('*')
         .order('created_at', { ascending: false });
 
-      const { data: vehiculosData } = await supabase
+      const { data: vehiculosData } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select(`
           *,
@@ -102,7 +102,7 @@ export const ClientesVehiculos: React.FC = () => {
 
   const handleSaveCliente = async () => {
     try {
-      const { error } = await supabase
+      const { error } = await database
         .from('clientes_2025_10_03_22_29')
         .insert([clienteForm]);
 
@@ -141,7 +141,7 @@ export const ClientesVehiculos: React.FC = () => {
         capacidad_aceite: parseFloat(vehiculoForm.capacidad_aceite)
       };
 
-      const { error } = await supabase
+      const { error } = await database
         .from('vehiculos_2025_10_03_22_29')
         .insert([vehiculoData]);
 
@@ -178,7 +178,7 @@ export const ClientesVehiculos: React.FC = () => {
     if (!patente.trim()) return;
 
     try {
-      const { data } = await supabase
+      const { data } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select(`
           *,
