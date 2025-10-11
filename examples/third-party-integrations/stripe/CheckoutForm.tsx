@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { useStripe, useElements, CardElement } from '@stripe/react-stripe-js';
-import { supabase } from '@/integrations/supabase/client';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 // ==================== Stripe Initialization Section ====================
 // ✅ Get public key from environment variables (secure)
@@ -117,18 +117,25 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
     try {
       // ✅ Step 1: Create payment intent
       console.log('🔄 Creating payment intent...');
-      const { data, error } = await supabase.functions.invoke('create-payment-intent', {
-        body: {
+      const createIntentResponse = await fetch(`${API_BASE_URL}/api/payments/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           amount: paymentData.amount,
           currency: paymentData.currency,
           product_ids: paymentData.productIds,
           customer_info: paymentData.customerInfo
-        }
+        })
       });
 
-      if (error) {
-        throw new Error(`Failed to create payment intent: ${error.message}`);
+      if (!createIntentResponse.ok) {
+        const body = await createIntentResponse.json().catch(() => ({}));
+        throw new Error(body?.error || `Failed to create payment intent (${createIntentResponse.status})`);
       }
+
+      const data = await createIntentResponse.json();
 
       if (!data?.client_secret) {
         throw new Error('Server returned invalid payment configuration');
@@ -161,8 +168,12 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
 
         // ✅ Step 3: Confirm order (optional)
         try {
-          await supabase.functions.invoke('confirm-payment', {
-            body: {
+          await fetch(`${API_BASE_URL}/api/payments/confirm-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
               payment_intent_id: paymentIntent.id,
               order_data: {
                 amount: paymentData.amount,
@@ -170,7 +181,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
                 products: paymentData.productIds,
                 customer: paymentData.customerInfo
               }
-            }
+            })
           });
           console.log('✅ Order confirmation successful');
         } catch (confirmError) {

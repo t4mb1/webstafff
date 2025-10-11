@@ -1,6 +1,6 @@
 # Serviteca Tamburini - Sistema de Gestión de Taller
 
-Sistema completo de gestión para talleres de cambio de aceite construido con React, TypeScript, Tailwind CSS y un backend ligero en Node.js/Express que se conecta a una base de datos PostgreSQL ejecutada en un contenedor Docker dentro del mismo VPS.
+Sistema completo de gestión para talleres de cambio de aceite construido con React, TypeScript, Tailwind CSS y un backend ligero en Node.js/Express que se conecta a una base de datos PostgreSQL dedicada desplegada en tu propio VPS (sin depender de Supabase).
 
 ## 🚀 Características
 
@@ -8,7 +8,7 @@ Sistema completo de gestión para talleres de cambio de aceite construido con Re
 - ✅ **UI Components**: shadcn/ui + Radix UI
 - ✅ **Routing**: React Router v6
 - ✅ **Backend**: API Node.js + Express + pg
-- ✅ **Base de datos**: PostgreSQL 16 en contenedor Docker
+- ✅ **Base de datos**: PostgreSQL 16 autogestionada (VPS / contenedor propio)
 - ✅ **Forms**: React Hook Form + Zod validation
 - ✅ **State Management**: React Context + Hooks
 - ✅ **Testing**: Vitest + React Testing Library
@@ -69,7 +69,7 @@ cp .env.example .env
 npm install
 ```
 
-Edita el archivo `.env` con las credenciales utilizadas al crear el contenedor PostgreSQL. Valores por defecto:
+Edita el archivo `.env` con las credenciales utilizadas al crear el contenedor PostgreSQL o con la información de tu servidor en el VPS. Valores por defecto:
 
 ```
 DB_HOST=localhost
@@ -79,7 +79,7 @@ DB_PASSWORD=serviteca_password
 DB_NAME=serviteca
 ```
 
-Luego inicia la API:
+Aplica las migraciones a tu base de datos (ver paso siguiente) y luego inicia la API:
 
 ```bash
 npm run dev
@@ -87,7 +87,23 @@ npm run dev
 
 El backend queda disponible en `http://localhost:4000`.
 
-### 3. Configurar el frontend
+### 3. Aplicar migraciones de la base de datos
+
+Las migraciones SQL viven en `server/migrations`. Puedes aplicarlas automáticamente con el script incluido:
+
+```bash
+./scripts/apply-migrations.sh
+```
+
+El script carga las variables de conexión desde `server/.env` por defecto (puedes definir `ENV_FILE=/ruta/a/.env` para usar otro archivo). Si prefieres correrlas manualmente, ejecuta cada archivo con `psql` en orden alfabético:
+
+```bash
+psql postgresql://serviteca_user:serviteca_password@localhost:5432/serviteca -f server/migrations/20250104000001_create_serviteca_schema.sql
+psql postgresql://serviteca_user:serviteca_password@localhost:5432/serviteca -f server/migrations/20250104000002_insert_initial_data.sql
+# ...continúa con el resto
+```
+
+### 4. Configurar el frontend
 
 ```bash
 cd ..
@@ -101,7 +117,7 @@ Añade la URL del backend en el archivo `.env` del frontend:
 VITE_API_BASE_URL=http://localhost:4000
 ```
 
-### 4. Ejecutar la aplicación
+### 5. Ejecutar la aplicación
 
 ```bash
 npm run dev
@@ -144,9 +160,9 @@ serviteca_system/
 │   └── integrations/        # Clientes para APIs externas
 ├── server/                  # API Express + PG
 │   ├── index.js             # Servidor principal
+│   ├── migrations/          # Migraciones SQL listas para aplicar
 │   └── .env.example         # Variables de entorno
-├── scripts/                 # Scripts auxiliares (Docker, etc.)
-└── supabase/                # Migraciones y referencias históricas
+└── scripts/                 # Scripts auxiliares (Docker, etc.)
 ```
 
 ## 📊 Variables de Entorno

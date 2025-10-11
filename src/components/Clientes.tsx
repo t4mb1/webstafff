@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { Plus, Search, User, Phone, Mail, MapPin, FileText } from 'lucide-react';
 
 interface Cliente {
@@ -59,7 +59,7 @@ export const Clientes: React.FC = () => {
 
   const loadClientes = async () => {
     try {
-      const { data: clientesData } = await supabase
+      const { data: clientesData } = await database
         .from('clientes_2025_10_03_22_29')
         .select('*')
         .order('created_at', { ascending: false });
@@ -79,7 +79,7 @@ export const Clientes: React.FC = () => {
 
   const loadVehiculosCliente = async (clienteId: string) => {
     try {
-      const { data: vehiculosData } = await supabase
+      const { data: vehiculosData } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select('*')
         .eq('cliente_id', clienteId)
@@ -98,7 +98,7 @@ export const Clientes: React.FC = () => {
 
   const handleSaveCliente = async () => {
     try {
-      const { error } = await supabase
+      const { error } = await database
         .from('clientes_2025_10_03_22_29')
         .insert([clienteForm]);
 

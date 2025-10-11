@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { clienteSchema, type ClienteFormData } from '@/lib/validations'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 
 interface ClienteFormProps {
   open: boolean
@@ -47,7 +47,7 @@ export function ClienteForm({ open, onOpenChange, cliente, onSuccess }: ClienteF
   const onSubmit = async (data: ClienteFormData) => {
     try {
       if (isEditing) {
-        const { error } = await supabase
+        const { error } = await database
           .from('clientes')
           .update(data)
           .eq('id', cliente.id)
@@ -59,7 +59,7 @@ export function ClienteForm({ open, onOpenChange, cliente, onSuccess }: ClienteF
           description: 'Los datos del cliente se han actualizado correctamente.'
         })
       } else {
-        const { error } = await supabase
+        const { error } = await database
           .from('clientes')
           .insert([data])
 

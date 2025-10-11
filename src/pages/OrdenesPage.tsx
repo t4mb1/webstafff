@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/tables/DataTable'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 import { Plus, Edit, Clock, CheckCircle } from 'lucide-react'
 
 interface OrdenTrabajo {
@@ -152,7 +152,7 @@ export function OrdenesPage() {
   const loadOrdenes = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      const { data, error } = await database
         .from('ordenes_trabajo')
         .select(`
           *,
@@ -193,7 +193,7 @@ export function OrdenesPage() {
         updateData.fecha_completada = new Date().toISOString()
       }
 
-      const { error } = await supabase
+      const { error } = await database
         .from('ordenes_trabajo')
         .update(updateData)
         .eq('id', ordenId)

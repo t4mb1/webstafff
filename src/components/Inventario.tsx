@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { Plus, Package, AlertTriangle, Edit, TrendingDown, TrendingUp } from 'lucide-react';
 
 interface InventarioItem {
@@ -64,7 +64,7 @@ export const Inventario: React.FC = () => {
 
   const loadInventario = async () => {
     try {
-      const { data } = await supabase
+      const { data } = await database
         .from('inventario_2025_10_03_22_29')
         .select('*')
         .order('categoria', { ascending: true });
@@ -84,7 +84,7 @@ export const Inventario: React.FC = () => {
 
   const loadAlertas = async () => {
     try {
-      const { data } = await supabase
+      const { data } = await database
         .from('alertas_inventario_view')
         .select('*');
 
@@ -105,7 +105,7 @@ export const Inventario: React.FC = () => {
       };
 
       if (editingItem) {
-        const { error } = await supabase
+        const { error } = await database
           .from('inventario_2025_10_03_22_29')
           .update(itemData)
           .eq('id', editingItem.id);
@@ -117,7 +117,7 @@ export const Inventario: React.FC = () => {
           description: "El producto se ha actualizado exitosamente",
         });
       } else {
-        const { error } = await supabase
+        const { error } = await database
           .from('inventario_2025_10_03_22_29')
           .insert([itemData]);
 
@@ -162,7 +162,7 @@ export const Inventario: React.FC = () => {
 
   const handleUpdateStock = async (id: string, nuevoStock: number) => {
     try {
-      const { error } = await supabase
+      const { error } = await database
         .from('inventario_2025_10_03_22_29')
         .update({ stock_actual: nuevoStock })
         .eq('id', id);

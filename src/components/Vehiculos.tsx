@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { database } from '@/integrations/database/client';
 import { Plus, Search, Car, User, History, FileText } from 'lucide-react';
 
 interface Vehiculo {
@@ -76,7 +76,7 @@ export const Vehiculos: React.FC = () => {
   const loadData = async () => {
     try {
       // Cargar vehículos con información del cliente
-      const { data: vehiculosData } = await supabase
+      const { data: vehiculosData } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select(`
           *,
@@ -89,7 +89,7 @@ export const Vehiculos: React.FC = () => {
         .order('created_at', { ascending: false });
 
       // Cargar clientes
-      const { data: clientesData } = await supabase
+      const { data: clientesData } = await database
         .from('clientes_2025_10_03_22_29')
         .select('id, nombre, apellido')
         .order('nombre');
@@ -110,7 +110,7 @@ export const Vehiculos: React.FC = () => {
 
   const loadHistorialVehiculo = async (vehiculoId: string) => {
     try {
-      const { data: historialData } = await supabase
+      const { data: historialData } = await database
         .from('historial_servicios_vehiculo')
         .select('*')
         .eq('vehiculo_id', vehiculoId)
@@ -136,7 +136,7 @@ export const Vehiculos: React.FC = () => {
         capacidad_aceite: parseFloat(vehiculoForm.capacidad_aceite)
       };
 
-      const { error } = await supabase
+      const { error } = await database
         .from('vehiculos_2025_10_03_22_29')
         .insert([vehiculoData]);
 
@@ -201,7 +201,7 @@ export const Vehiculos: React.FC = () => {
     if (!patente.trim()) return;
 
     try {
-      const { data } = await supabase
+      const { data } = await database
         .from('vehiculos_2025_10_03_22_29')
         .select(`
           *,

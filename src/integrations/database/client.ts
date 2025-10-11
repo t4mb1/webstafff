@@ -243,9 +243,9 @@ class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<unknown>> {
   }
 }
 
-export const supabase = new LocalDatabaseClient(API_BASE_URL);
+export const database = new LocalDatabaseClient(API_BASE_URL);
 
-export type Database = {
+export type DatabaseSchema = {
   public: {
     Tables: {
       clientes_2025_10_03_22_29: {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/tables/DataTable'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 import { Plus, Edit, AlertTriangle, Package } from 'lucide-react'
 
 interface InventarioItem {
@@ -102,7 +102,7 @@ export function InventarioPage() {
   const loadInventario = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      const { data, error } = await database
         .from('inventario')
         .select('*')
         .order('nombre')

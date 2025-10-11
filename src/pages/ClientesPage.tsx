@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/tables/DataTable'
 import { ClienteForm } from '@/components/forms/ClienteForm'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 import { Plus, Edit, Trash2, FileText } from 'lucide-react'
 import type { ClienteFormData } from '@/lib/validations'
 
@@ -85,7 +85,7 @@ export function ClientesPage() {
   const loadClientes = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      const { data, error } = await database
         .from('clientes')
         .select('*')
         .order('created_at', { ascending: false })

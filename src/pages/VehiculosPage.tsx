@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/tables/DataTable'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 import { Plus, Edit, FileText, History } from 'lucide-react'
 
 interface Vehiculo {
@@ -94,7 +94,7 @@ export function VehiculosPage() {
   const loadVehiculos = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      const { data, error } = await database
         .from('vehiculos')
         .select(`
           *,

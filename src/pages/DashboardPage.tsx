@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/integrations/supabase/client'
+import { database } from '@/integrations/database/client'
 import { useToast } from '@/hooks/use-toast'
 import { 
   Car, 
@@ -52,7 +52,7 @@ export function DashboardPage() {
       setLoading(true)
       
       // Get dashboard stats using RPC function
-      const { data: statsData, error: statsError } = await supabase
+      const { data: statsData, error: statsError } = await database
         .rpc('get_dashboard_stats')
 
       if (statsError) throw statsError
@@ -62,7 +62,7 @@ export function DashboardPage() {
       }
 
       // Get inventory alerts
-      const { data: alertasData, error: alertasError } = await supabase
+      const { data: alertasData, error: alertasError } = await database
         .from('alertas_inventario')
         .select('*')
         .limit(5)
