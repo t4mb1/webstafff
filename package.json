@@ -10,7 +10,8 @@
     "build:map": "VITE_ENABLE_ROUTE_MESSAGING=true vite build --sourcemap",
     "lint": "eslint .",
     "preview": "vite preview",
-    "preview:dev": "npm run build:dev && npm run preview"
+    "preview:dev": "npm run build:dev && npm run preview",
+    "verify:ordenes": "node server/tests/verifyOrdenesSelect.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

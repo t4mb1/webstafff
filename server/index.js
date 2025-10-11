@@ -53,14 +53,17 @@ const sanitizeIdentifier = (value, type) => {
 
 const quoteIdentifier = (value) => `"${value}"`;
 
-const buildWhereClause = (filters = {}, startIndex = 1) => {
+const buildWhereClause = (filters = {}, startIndex = 1, tableAlias) => {
   const clauses = [];
   const values = [];
   let index = startIndex;
 
   Object.entries(filters).forEach(([column, value]) => {
     sanitizeIdentifier(column, 'column name');
-    clauses.push(`${quoteIdentifier(column)} = $${index}`);
+    const columnReference = tableAlias
+      ? `${tableAlias}.${quoteIdentifier(column)}`
+      : `${quoteIdentifier(column)}`;
+    clauses.push(`${columnReference} = $${index}`);
     values.push(value);
     index += 1;
   });
@@ -72,25 +75,183 @@ const buildWhereClause = (filters = {}, startIndex = 1) => {
   };
 };
 
+const createAliasFactory = () => {
+  let counter = 1;
+  return (prefix) => `${prefix}${counter++}`;
+};
+
+const findMatchingParenthesis = (input, startIndex) => {
+  let depth = 0;
+  for (let i = startIndex; i < input.length; i += 1) {
+    const char = input[i];
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+  throw new ValidationError('Unmatched parentheses in column selection.');
+};
+
+const parseSelectionList = (input) => {
+  const selections = [];
+  let index = 0;
+  const length = input.length;
+
+  const skipWhitespaceAndCommas = () => {
+    while (index < length) {
+      const char = input[index];
+      if (char === ',' || char === '\n' || char === '\r') {
+        index += 1;
+        continue;
+      }
+      if (char.trim() === '') {
+        index += 1;
+        continue;
+      }
+      break;
+    }
+  };
+
+  while (index < length) {
+    skipWhitespaceAndCommas();
+    if (index >= length) {
+      break;
+    }
+
+    let tokenStart = index;
+    while (index < length) {
+      const char = input[index];
+      if (char === '(' || char === ')' || char === ',') {
+        break;
+      }
+      index += 1;
+    }
+
+    const token = input.slice(tokenStart, index).trim();
+    if (!token && input[index] === '(') {
+      throw new ValidationError('Relation name missing before parentheses.');
+    }
+
+    if (index < length && input[index] === '(') {
+      const endIndex = findMatchingParenthesis(input, index);
+      const inner = input.slice(index + 1, endIndex);
+      selections.push({
+        type: 'relation',
+        name: token,
+        selections: parseSelectionList(inner),
+      });
+      index = endIndex + 1;
+      continue;
+    }
+
+    if (token) {
+      selections.push({ type: 'column', name: token });
+    }
+
+    if (index < length && input[index] === ',') {
+      index += 1;
+    }
+  }
+
+  return selections;
+};
+
+const buildSelectionTree = (nodes) => {
+  const baseColumns = [];
+  const relations = [];
+
+  nodes.forEach((node) => {
+    if (node.type === 'column') {
+      if (node.name === '*') {
+        baseColumns.push('*');
+      } else {
+        baseColumns.push(sanitizeIdentifier(node.name, 'column name'));
+      }
+      return;
+    }
+
+    if (!node.name || node.name === '*') {
+      throw new ValidationError('Relation name is required.');
+    }
+
+    const relationName = sanitizeIdentifier(node.name, 'relation name');
+    relations.push({
+      name: relationName,
+      selection: buildSelectionTree(node.selections || []),
+    });
+  });
+
+  return { baseColumns, relations };
+};
+
 const parseColumns = (columns) => {
   if (!columns || columns === '*' || columns === '*,') {
-    return '*';
+    return { baseColumns: ['*'], relations: [] };
   }
 
-  const list = Array.isArray(columns)
-    ? columns
-    : String(columns)
-        .split(',')
-        .map((column) => column.trim())
-        .filter(Boolean);
-
-  if (list.length === 0) {
-    return '*';
+  const raw = Array.isArray(columns) ? columns.join(',') : String(columns);
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { baseColumns: ['*'], relations: [] };
   }
 
-  list.forEach((column) => sanitizeIdentifier(column, 'column name'));
+  const nodes = parseSelectionList(trimmed);
+  return buildSelectionTree(nodes);
+};
 
-  return list.map(quoteIdentifier).join(', ');
+const singularizeRelationName = (name) => {
+  if (name.endsWith('es')) {
+    return name.slice(0, -2);
+  }
+  if (name.endsWith('s')) {
+    return name.slice(0, -1);
+  }
+  return name;
+};
+
+const buildSelectComponents = (tableName, tableAlias, selection, aliasFactory) => {
+  const selectExpressions = [];
+  const joinClauses = [];
+
+  selection.baseColumns.forEach((column) => {
+    if (column === '*') {
+      selectExpressions.push(`${tableAlias}.*`);
+    } else {
+      selectExpressions.push(`${tableAlias}.${quoteIdentifier(column)} AS ${quoteIdentifier(column)}`);
+    }
+  });
+
+  selection.relations.forEach((relation) => {
+    const relationTable = relation.name;
+    const relationTableAlias = aliasFactory('t');
+    const relationSelection = buildSelectComponents(relationTable, relationTableAlias, relation.selection, aliasFactory);
+
+    const relationSelectList = relationSelection.selectExpressions.length > 0
+      ? relationSelection.selectExpressions.join(', ')
+      : `${relationTableAlias}.*`;
+
+    let relationQuery = `SELECT ${relationSelectList} FROM ${quoteIdentifier(relationTable)} ${relationTableAlias}`;
+    if (relationSelection.joinClauses.length > 0) {
+      relationQuery += ` ${relationSelection.joinClauses.join(' ')}`;
+    }
+
+    const joinColumnName = sanitizeIdentifier(`${singularizeRelationName(relationTable)}_id`, 'column name');
+    relationQuery += ` WHERE ${relationTableAlias}.${quoteIdentifier('id')} = ${tableAlias}.${quoteIdentifier(joinColumnName)}`;
+    relationQuery += ' LIMIT 1';
+
+    const subqueryAlias = aliasFactory('s');
+    const joinAlias = aliasFactory('l');
+    const joinClause = `LEFT JOIN LATERAL (SELECT row_to_json(${subqueryAlias}) AS data FROM (${relationQuery}) AS ${subqueryAlias}) AS ${joinAlias} ON true`;
+
+    joinClauses.push(joinClause);
+    selectExpressions.push(`${joinAlias}.data AS ${quoteIdentifier(relationTable)}`);
+  });
+
+  return { selectExpressions, joinClauses };
 };
 
 const buildRpcQuery = (functionName, args) => {
@@ -181,10 +342,19 @@ app.post('/api/query', async (req, res) => {
     const safeTable = sanitizeIdentifier(table, 'table name');
 
     if (operation === 'select') {
-      const selectedColumns = parseColumns(columns);
-      const { clause, values } = buildWhereClause(filters);
+      const selection = parseColumns(columns);
+      const aliasFactory = createAliasFactory();
+      const tableAlias = 't0';
+      const selectComponents = buildSelectComponents(safeTable, tableAlias, selection, aliasFactory);
+      const selectList = selectComponents.selectExpressions.length > 0
+        ? selectComponents.selectExpressions.join(', ')
+        : `${tableAlias}.*`;
+      const { clause, values } = buildWhereClause(filters, 1, tableAlias);
 
-      let query = `SELECT ${selectedColumns} FROM ${quoteIdentifier(safeTable)}`;
+      let query = `SELECT ${selectList} FROM ${quoteIdentifier(safeTable)} ${tableAlias}`;
+      if (selectComponents.joinClauses.length > 0) {
+        query += ` ${selectComponents.joinClauses.join(' ')}`;
+      }
       if (clause) {
         query += ` WHERE ${clause}`;
       }
@@ -192,7 +362,7 @@ app.post('/api/query', async (req, res) => {
       if (order && order.column) {
         const safeOrderColumn = sanitizeIdentifier(order.column, 'order column');
         const direction = order.ascending === false ? 'DESC' : 'ASC';
-        query += ` ORDER BY ${quoteIdentifier(safeOrderColumn)} ${direction}`;
+        query += ` ORDER BY ${tableAlias}.${quoteIdentifier(safeOrderColumn)} ${direction}`;
       }
 
       const limitValue = Number(limit);
