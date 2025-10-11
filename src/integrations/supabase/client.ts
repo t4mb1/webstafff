@@ -1,15 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-type QueryOperation = 'select' | 'insert' | 'update';
+type QueryOperation = 'select' | 'insert' | 'update' | 'rpc';
 
 type OrderConfig = {
   column: string;
   ascending?: boolean;
 };
 
-type QueryPayload = {
+type TableQueryPayload = {
   table: string;
-  operation: QueryOperation;
+  operation: 'select' | 'insert' | 'update';
   columns?: string | string[];
   filters?: Record<string, unknown>;
   order?: OrderConfig;
@@ -17,6 +17,15 @@ type QueryPayload = {
   single?: boolean;
   data?: unknown;
 };
+
+type RpcQueryPayload = {
+  operation: 'rpc';
+  functionName: string;
+  args?: unknown[];
+  single?: boolean;
+};
+
+type QueryPayload = TableQueryPayload | RpcQueryPayload;
 
 type QueryResponse<T = unknown> = {
   data: T;
@@ -32,6 +41,16 @@ class LocalDatabaseClient {
 
   from(table: string) {
     return new LocalTableQueryBuilder(this, table);
+  }
+
+  rpc<T = unknown>(functionName: string, args?: unknown[]) {
+    const payload: QueryPayload = {
+      operation: 'rpc',
+      functionName,
+      args,
+    };
+
+    return this.execute<T>(payload);
   }
 
   async execute<T = unknown>(payload: QueryPayload): Promise<QueryResponse<T>> {
