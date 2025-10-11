@@ -1,310 +1,343 @@
-import { createClient } from '@supabase/supabase-js'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-// Use environment variables first, fallback to hardcoded values for demo
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://bwiqvceluyltmwhhokgz.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3aXF2Y2VsdXlsdG13aGhva2d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjY3MzIsImV4cCI6MjA3NTEwMjczMn0.RWYzW087VwWbLhbnsJhmLyDIHNdusdm5PUd9Zp6ZBaM'
+type QueryOperation = 'select' | 'insert' | 'update';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables not found, using demo configuration')
-}
+type OrderConfig = {
+  column: string;
+  ascending?: boolean;
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  db: {
-    schema: 'public'
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'serviteca-system@1.0.0'
+type QueryPayload = {
+  table: string;
+  operation: QueryOperation;
+  columns?: string | string[];
+  filters?: Record<string, unknown>;
+  order?: OrderConfig;
+  limit?: number;
+  single?: boolean;
+  data?: unknown;
+};
+
+type QueryResponse<T = unknown> = {
+  data: T;
+  error: Error | null;
+};
+
+class LocalDatabaseClient {
+  private readonly baseUrl: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+  }
+
+  from(table: string) {
+    return new LocalTableQueryBuilder(this, table);
+  }
+
+  async execute<T = unknown>(payload: QueryPayload): Promise<QueryResponse<T>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const contentType = response.headers.get('content-type');
+      const body = contentType && contentType.includes('application/json') ? await response.json() : {};
+
+      if (!response.ok) {
+        const message = body?.error || `Database request failed with status ${response.status}`;
+        return { data: null as T, error: new Error(message) };
+      }
+
+      if (body?.error) {
+        return { data: null as T, error: new Error(body.error) };
+      }
+
+      return { data: body?.data as T, error: null };
+    } catch (error) {
+      if (error instanceof Error) {
+        return { data: null as T, error };
+      }
+
+      return { data: null as T, error: new Error('Unexpected error executing database request') };
     }
   }
-})
+}
 
-// Types for better TypeScript support
+class LocalTableQueryBuilder {
+  private readonly client: LocalDatabaseClient;
+  private readonly table: string;
+
+  constructor(client: LocalDatabaseClient, table: string) {
+    this.client = client;
+    this.table = table;
+  }
+
+  select(columns: string | string[] = '*') {
+    const builder = new LocalSelectQueryBuilder(this.client, this.table);
+    return builder.select(columns);
+  }
+
+  insert<T = unknown>(rows: T | T[]) {
+    const payload: QueryPayload = {
+      table: this.table,
+      operation: 'insert',
+      data: Array.isArray(rows) ? rows : [rows],
+    };
+
+    return this.client.execute(payload);
+  }
+
+  update(values: Record<string, unknown>) {
+    const builder = new LocalUpdateQueryBuilder(this.client, this.table);
+    return builder.update(values);
+  }
+}
+
+class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<any>> {
+  private readonly client: LocalDatabaseClient;
+  private readonly table: string;
+  private columns: string | string[] = '*';
+  private filters: Record<string, unknown> = {};
+  private orderConfig?: OrderConfig;
+  private limitValue?: number;
+  private singleResult = false;
+
+  constructor(client: LocalDatabaseClient, table: string) {
+    this.client = client;
+    this.table = table;
+  }
+
+  select(columns: string | string[] = '*') {
+    this.columns = columns;
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters = {
+      ...this.filters,
+      [column]: value,
+    };
+    return this;
+  }
+
+  order(column: string, options: { ascending?: boolean } = {}) {
+    this.orderConfig = {
+      column,
+      ascending: options.ascending !== undefined ? options.ascending : true,
+    };
+    return this;
+  }
+
+  limit(value: number) {
+    this.limitValue = value;
+    return this;
+  }
+
+  single() {
+    this.singleResult = true;
+    return this;
+  }
+
+  private buildPayload(): QueryPayload {
+    return {
+      table: this.table,
+      operation: 'select',
+      columns: this.columns,
+      filters: this.filters,
+      order: this.orderConfig,
+      limit: this.limitValue,
+      single: this.singleResult,
+    };
+  }
+
+  async execute() {
+    return this.client.execute(this.buildPayload());
+  }
+
+  then<TResult1 = QueryResponse<any>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResponse<any>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined | null,
+  ) {
+    return this.execute().then(onfulfilled, onrejected);
+  }
+}
+
+class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<any>> {
+  private readonly client: LocalDatabaseClient;
+  private readonly table: string;
+  private data: Record<string, unknown> = {};
+  private filters: Record<string, unknown> = {};
+  private singleResult = false;
+
+  constructor(client: LocalDatabaseClient, table: string) {
+    this.client = client;
+    this.table = table;
+  }
+
+  update(values: Record<string, unknown>) {
+    this.data = values;
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters = {
+      ...this.filters,
+      [column]: value,
+    };
+    return this;
+  }
+
+  single() {
+    this.singleResult = true;
+    return this;
+  }
+
+  private buildPayload(): QueryPayload {
+    return {
+      table: this.table,
+      operation: 'update',
+      data: this.data,
+      filters: this.filters,
+      single: this.singleResult,
+    };
+  }
+
+  async execute() {
+    return this.client.execute(this.buildPayload());
+  }
+
+  then<TResult1 = QueryResponse<any>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResponse<any>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined | null,
+  ) {
+    return this.execute().then(onfulfilled, onrejected);
+  }
+}
+
+export const supabase = new LocalDatabaseClient(API_BASE_URL);
+
 export type Database = {
   public: {
     Tables: {
+      clientes_2025_10_03_22_29: {
+        Row: {
+          id: string;
+          nombre: string;
+          apellido: string;
+          email: string;
+          telefono: string;
+          direccion: string;
+          rut: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      vehiculos_2025_10_03_22_29: {
+        Row: {
+          id: string;
+          cliente_id: string;
+          patente: string;
+          marca: string;
+          modelo: string;
+          año: number;
+          color: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      empleados_2025_10_03_22_29: {
+        Row: {
+          id: string;
+          nombre: string;
+          apellido: string;
+          especialidad: string;
+          activo: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      inventario_2025_10_03_22_29: {
+        Row: {
+          id: string;
+          nombre: string;
+          categoria: string;
+          precio_compra: number;
+          precio_venta: number;
+          stock_actual: number;
+          stock_minimo: number;
+          codigo_barras: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      ordenes_trabajo_2025_10_03_22_29: {
+        Row: {
+          id: string;
+          numero_orden: string;
+          vehiculo_id: string;
+          empleado_id: string | null;
+          estado: 'abierta' | 'en_proceso' | 'completada' | 'facturada';
+          servicios_realizados: string[];
+          kilometraje_actual: number;
+          proximo_cambio: number | null;
+          total: number;
+          observaciones: string;
+          fecha_inicio: string;
+          fecha_completada: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      citas_2025_10_03_22_29: {
+        Row: {
+          id: string;
+          cliente_id: string;
+          vehiculo_id: string;
+          fecha_hora: string;
+          tipo_servicio: string;
+          estado: 'programada' | 'confirmada' | 'completada' | 'cancelada';
+          observaciones: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      historial_servicios_vehiculo: {
+        Row: {
+          id: string;
+          vehiculo_id: string;
+          descripcion: string;
+          fecha_servicio: string;
+          kilometraje: number;
+          costo: number;
+          observaciones: string;
+          created_at: string;
+        };
+      };
       clientes: {
-        Row: {
-          id: string
-          nombre: string
-          apellido: string
-          email: string
-          telefono: string
-          direccion: string
-          rut: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          nombre: string
-          apellido: string
-          email: string
-          telefono: string
-          direccion: string
-          rut: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          nombre?: string
-          apellido?: string
-          email?: string
-          telefono?: string
-          direccion?: string
-          rut?: string
-          updated_at?: string
-        }
-      }
+        Row: Record<string, unknown>;
+      };
       vehiculos: {
-        Row: {
-          id: string
-          cliente_id: string
-          patente: string
-          marca: string
-          modelo: string
-          año: number
-          color: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          cliente_id: string
-          patente: string
-          marca: string
-          modelo: string
-          año: number
-          color: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          cliente_id?: string
-          patente?: string
-          marca?: string
-          modelo?: string
-          año?: number
-          color?: string
-          updated_at?: string
-        }
-      }
+        Row: Record<string, unknown>;
+      };
       inventario: {
-        Row: {
-          id: string
-          nombre: string
-          categoria: string
-          precio_compra: number
-          precio_venta: number
-          stock_actual: number
-          stock_minimo: number
-          codigo_barras: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          nombre: string
-          categoria: string
-          precio_compra: number
-          precio_venta: number
-          stock_actual: number
-          stock_minimo: number
-          codigo_barras?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          nombre?: string
-          categoria?: string
-          precio_compra?: number
-          precio_venta?: number
-          stock_actual?: number
-          stock_minimo?: number
-          codigo_barras?: string
-          updated_at?: string
-        }
-      }
+        Row: Record<string, unknown>;
+      };
       ordenes_trabajo: {
-        Row: {
-          id: string
-          numero_orden: string
-          vehiculo_id: string
-          empleado_id: string | null
-          estado: 'abierta' | 'en_proceso' | 'completada' | 'facturada'
-          servicios_realizados: string[]
-          kilometraje_actual: number
-          proximo_cambio: number | null
-          total: number
-          observaciones: string
-          fecha_inicio: string
-          fecha_completada: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          numero_orden?: string
-          vehiculo_id: string
-          empleado_id?: string | null
-          estado?: 'abierta' | 'en_proceso' | 'completada' | 'facturada'
-          servicios_realizados: string[]
-          kilometraje_actual: number
-          proximo_cambio?: number | null
-          total?: number
-          observaciones?: string
-          fecha_inicio?: string
-          fecha_completada?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          numero_orden?: string
-          vehiculo_id?: string
-          empleado_id?: string | null
-          estado?: 'abierta' | 'en_proceso' | 'completada' | 'facturada'
-          servicios_realizados?: string[]
-          kilometraje_actual?: number
-          proximo_cambio?: number | null
-          total?: number
-          observaciones?: string
-          fecha_inicio?: string
-          fecha_completada?: string | null
-          updated_at?: string
-        }
-      }
+        Row: Record<string, unknown>;
+      };
       citas: {
-        Row: {
-          id: string
-          cliente_id: string
-          vehiculo_id: string
-          fecha_hora: string
-          tipo_servicio: string
-          estado: 'programada' | 'confirmada' | 'completada' | 'cancelada'
-          observaciones: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          cliente_id: string
-          vehiculo_id: string
-          fecha_hora: string
-          tipo_servicio: string
-          estado?: 'programada' | 'confirmada' | 'completada' | 'cancelada'
-          observaciones?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          cliente_id?: string
-          vehiculo_id?: string
-          fecha_hora?: string
-          tipo_servicio?: string
-          estado?: 'programada' | 'confirmada' | 'completada' | 'cancelada'
-          observaciones?: string
-          updated_at?: string
-        }
-      }
-      empleados: {
-        Row: {
-          id: string
-          nombre: string
-          apellido: string
-          email: string
-          telefono: string
-          cargo: string
-          activo: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          nombre: string
-          apellido: string
-          email: string
-          telefono: string
-          cargo: string
-          activo?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          nombre?: string
-          apellido?: string
-          email?: string
-          telefono?: string
-          cargo?: string
-          activo?: boolean
-          updated_at?: string
-        }
-      }
-    }
-    Views: {
+        Row: Record<string, unknown>;
+      };
       alertas_inventario: {
-        Row: {
-          id: string
-          nombre: string
-          categoria: string
-          stock_actual: number
-          stock_minimo: number
-          diferencia: number
-        }
-      }
-      historial_vehiculos: {
-        Row: {
-          vehiculo_id: string
-          patente: string
-          marca: string
-          modelo: string
-          cliente_nombre: string
-          orden_id: string
-          numero_orden: string
-          fecha_servicio: string
-          servicios: string[]
-          kilometraje: number
-          total: number
-        }
-      }
-    }
-    Functions: {
-      get_dashboard_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          citas_hoy: number
-          ordenes_abiertas: number
-          clientes_total: number
-          inventario_bajo: number
-          servicios_mes: number
-          ingresos_mes: number
-        }[]
-      }
-      buscar_vehiculo_por_patente: {
-        Args: { patente_buscar: string }
-        Returns: {
-          vehiculo_id: string
-          patente: string
-          marca: string
-          modelo: string
-          cliente_id: string
-          cliente_nombre: string
-          cliente_telefono: string
-        }[]
-      }
-    }
-  }
-}
-
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+        Row: Record<string, unknown>;
+      };
+      alertas_inventario_view: {
+        Row: Record<string, unknown>;
+      };
+    };
+  };
+};

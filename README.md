@@ -1,18 +1,19 @@
 # Serviteca Tamburini - Sistema de Gestión de Taller
 
-Sistema completo de gestión para talleres de cambio de aceite con React, TypeScript, Tailwind CSS y Supabase.
+Sistema completo de gestión para talleres de cambio de aceite construido con React, TypeScript, Tailwind CSS y un backend ligero en Node.js/Express que se conecta a una base de datos PostgreSQL ejecutada en un contenedor Docker dentro del mismo VPS.
 
 ## 🚀 Características
 
 - ✅ **Frontend**: Vite + React 18 + TypeScript + Tailwind CSS
 - ✅ **UI Components**: shadcn/ui + Radix UI
 - ✅ **Routing**: React Router v6
-- ✅ **Backend**: Supabase (PostgreSQL + Auth + RLS)
+- ✅ **Backend**: API Node.js + Express + pg
+- ✅ **Base de datos**: PostgreSQL 16 en contenedor Docker
 - ✅ **Forms**: React Hook Form + Zod validation
 - ✅ **State Management**: React Context + Hooks
 - ✅ **Testing**: Vitest + React Testing Library
 - ✅ **Docker**: Desarrollo local containerizado
-- ✅ **Security**: CSP headers, RLS policies, input validation
+- ✅ **Security**: CSP headers, validación de entrada y CORS configurables
 
 ## 📋 Funcionalidades
 
@@ -48,65 +49,76 @@ Sistema completo de gestión para talleres de cambio de aceite con React, TypeSc
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js 18+ and npm
-- Docker and Docker Compose (optional)
-- Supabase account (optional - demo works without it)
+### Prerrequisitos
+- Node.js 18+ y npm
+- Docker (para la base de datos)
 
-### Environment Setup
+### 1. Crear la base de datos en Docker
 
-1. **Copy environment variables:**
 ```bash
+./scripts/create-postgres-container.sh
+```
+
+El script crea (si es necesario) una red Docker dedicada y levanta un contenedor PostgreSQL 16 listo para ser utilizado por el backend. Puedes personalizar usuario, contraseña, puerto o ruta de datos usando variables de entorno antes de ejecutar el script.
+
+### 2. Configurar el backend API
+
+```bash
+cd server
 cp .env.example .env
-```
-
-2. **Configure Supabase (Optional):**
-   - The project includes demo Supabase credentials that work out of the box
-   - For production, replace with your own Supabase project credentials in `.env`:
-```bash
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### Development
-
-```bash
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-
-# Access the application
-# URL: http://localhost:5173
-# Password: serviteca+1995
 ```
 
-### Database Setup (Optional)
+Edita el archivo `.env` con las credenciales utilizadas al crear el contenedor PostgreSQL. Valores por defecto:
 
-If you want to use your own Supabase project:
+```
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=serviteca_user
+DB_PASSWORD=serviteca_password
+DB_NAME=serviteca
+```
+
+Luego inicia la API:
+
 ```bash
-# Execute SQL migrations in your Supabase project
-# Files are located in /supabase/migrations/
-```
-
-5. **Desarrollo local**
-```bash
-# Opción 1: Desarrollo directo
 npm run dev
-
-# Opción 2: Con Docker
-docker-compose up -d
 ```
+
+El backend queda disponible en `http://localhost:4000`.
+
+### 3. Configurar el frontend
+
+```bash
+cd ..
+cp .env.example .env   # si aún no existe
+npm install
+```
+
+Añade la URL del backend en el archivo `.env` del frontend:
+
+```
+VITE_API_BASE_URL=http://localhost:4000
+```
+
+### 4. Ejecutar la aplicación
+
+```bash
+npm run dev
+```
+
+La aplicación quedará disponible en `http://localhost:5173` (credenciales demo: `serviteca+1995`).
 
 ## 🐳 Docker
 
-### Desarrollo
+### Desarrollo completo con Docker Compose
+
 ```bash
 docker-compose up -d
 ```
 
-### Producción
+### Build de producción (frontend)
+
 ```bash
 docker build -t serviteca-system .
 docker run -p 3000:3000 serviteca-system
@@ -115,141 +127,86 @@ docker run -p 3000:3000 serviteca-system
 ## 🧪 Testing
 
 ```bash
-# Ejecutar todos los tests
-npm run test
-
-# Tests en modo watch
-npm run test:watch
-
-# Coverage
-npm run test:coverage
-
-# Tests específicos
-npm run test -- --grep "Dashboard"
+npm run test            # Ejecutar todos los tests
+npm run test:watch      # Tests en modo watch
+npm run test:coverage   # Reporte de cobertura
 ```
 
 ## 📁 Estructura del Proyecto
 
 ```
 serviteca_system/
-├── src/
+├── src/                     # Frontend (React)
 │   ├── components/          # Componentes reutilizables
-│   │   ├── ui/             # shadcn/ui components
-│   │   ├── forms/          # Formularios con validación
-│   │   └── tables/         # DataTables reutilizables
-│   ├── pages/              # Páginas/Rutas principales
-│   ├── hooks/              # Custom hooks
-│   ├── lib/                # Utilidades y configuración
-│   ├── types/              # Definiciones TypeScript
-│   └── integrations/       # Integraciones externas
-├── supabase/
-│   ├── migrations/         # Migraciones SQL
-│   └── edge_functions/     # Funciones serverless
-├── tests/                  # Tests unitarios e integración
-├── docker/                 # Configuración Docker
-└── docs/                   # Documentación
-```
-
-## 🔒 Seguridad
-
-### Content Security Policy (CSP)
-- Sin scripts inline
-- Fuentes permitidas configuradas
-- Nonce para scripts dinámicos
-
-### Row Level Security (RLS)
-- Políticas por tabla
-- Acceso basado en roles
-- Validación de permisos
-
-### Validación de Datos
-- Esquemas Zod en frontend
-- Validación en base de datos
-- Sanitización de inputs
-
-## 🚀 Deploy
-
-### Vercel (Recomendado)
-```bash
-# Instalar Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel --prod
-```
-
-### Netlify
-```bash
-# Build
-npm run build
-
-# Deploy carpeta dist/
-```
-
-### Docker
-```bash
-# Build imagen
-docker build -t serviteca-system .
-
-# Run container
-docker run -p 3000:3000 serviteca-system
+│   ├── pages/               # Páginas/Rutas principales
+│   ├── hooks/               # Hooks personalizados
+│   ├── lib/                 # Utilidades
+│   └── integrations/        # Clientes para APIs externas
+├── server/                  # API Express + PG
+│   ├── index.js             # Servidor principal
+│   └── .env.example         # Variables de entorno
+├── scripts/                 # Scripts auxiliares (Docker, etc.)
+└── supabase/                # Migraciones y referencias históricas
 ```
 
 ## 📊 Variables de Entorno
 
+### Frontend (`.env`)
 | Variable | Descripción | Requerida |
 |----------|-------------|-----------|
-| `VITE_SUPABASE_URL` | URL del proyecto Supabase | ✅ |
-| `VITE_SUPABASE_ANON_KEY` | Clave anónima de Supabase | ✅ |
+| `VITE_API_BASE_URL` | URL base de la API interna | ✅ |
 | `VITE_APP_NAME` | Nombre de la aplicación | ❌ |
-| `VITE_STRIPE_PUBLISHABLE_KEY` | Clave pública de Stripe | ❌ |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | Clave pública de Stripe (si aplica) | ❌ |
+
+### Backend (`server/.env`)
+| Variable | Descripción | Requerida |
+|----------|-------------|-----------|
+| `PORT` | Puerto de la API (por defecto 4000) | ❌ |
+| `ALLOWED_ORIGINS` | Lista de orígenes permitidos para CORS | ❌ |
+| `DATABASE_URL` | Cadena de conexión completa (opcional) | ❌ |
+| `DB_HOST` | Host de PostgreSQL | ✅* |
+| `DB_PORT` | Puerto de PostgreSQL | ✅* |
+| `DB_USER` | Usuario de PostgreSQL | ✅* |
+| `DB_PASSWORD` | Contraseña de PostgreSQL | ✅* |
+| `DB_NAME` | Base de datos de PostgreSQL | ✅* |
+| `DB_SSL` | Habilitar SSL (`true`/`false`) | ❌ |
+
+\*Si `DATABASE_URL` está definido, los parámetros individuales pueden omitirse.
 
 ## 🤝 Contribución
 
-1. Fork el proyecto
+1. Fork del proyecto
 2. Crear feature branch (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -m 'Agregar nueva funcionalidad'`)
+3. Commit de cambios (`git commit -m 'Agregar nueva funcionalidad'`)
 4. Push al branch (`git push origin feature/nueva-funcionalidad`)
 5. Abrir Pull Request
 
 ## 📝 Comandos Útiles
 
 ```bash
-# Desarrollo
-npm run dev              # Servidor de desarrollo
-npm run build           # Build para producción
-npm run preview         # Preview del build
-
-# Testing
-npm run test            # Ejecutar tests
-npm run test:watch      # Tests en modo watch
-npm run test:coverage   # Reporte de cobertura
-
-# Linting
-npm run lint            # ESLint
-npm run lint:fix        # Fix automático
-npm run type-check      # Verificación TypeScript
-
-# Docker
-docker-compose up -d    # Desarrollo con Docker
-docker-compose down     # Detener containers
-docker-compose logs -f  # Ver logs
+npm run dev              # Servidor de desarrollo frontend
+npm run build            # Build para producción
+npm run preview          # Preview del build
+npm run lint             # ESLint
+npm run test             # Ejecutar tests
+npm run test:watch       # Tests en modo watch
+npm run test:coverage    # Reporte de cobertura
 ```
 
 ## 🐛 Troubleshooting
 
-### Error de conexión a Supabase
-- Verificar variables de entorno
-- Confirmar URL y keys correctas
-- Revisar políticas RLS
+### Error de conexión a la API
+- Verifica que el backend esté corriendo en `http://localhost:4000`
+- Confirma las credenciales en `server/.env`
+- Asegúrate de que el contenedor PostgreSQL está levantado (`docker ps`)
 
 ### Problemas de CORS
-- Configurar dominios permitidos en Supabase
-- Verificar headers de seguridad
+- Ajusta la variable `ALLOWED_ORIGINS` en `server/.env`
+- Revisa los encabezados CSP definidos en `nginx.conf`
 
 ### Tests fallando
-- Limpiar cache: `npm run test -- --clearCache`
-- Verificar mocks de Supabase
+- Limpia la cache de Vitest: `npm run test -- --clearCache`
+- Revisa los mocks de datos utilizados en los componentes
 
 ## 📄 Licencia
 
@@ -258,8 +215,8 @@ MIT License - ver [LICENSE](LICENSE) para detalles.
 ## 👥 Equipo
 
 - **Frontend**: React + TypeScript + Tailwind
-- **Backend**: Supabase + PostgreSQL
-- **DevOps**: Docker + Vercel
+- **Backend**: Node.js + Express + PostgreSQL
+- **DevOps**: Docker + Nginx
 - **Testing**: Vitest + RTL
 
 ---
