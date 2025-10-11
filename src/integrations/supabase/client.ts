@@ -1,24 +1,38 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
-type QueryOperation = 'select' | 'insert' | 'update';
+export type QueryOperation = 'select' | 'insert' | 'update' | 'rpc';
 
 type OrderConfig = {
   column: string;
   ascending?: boolean;
 };
 
-type QueryPayload = {
-  table: string;
+type BaseQueryPayload = {
   operation: QueryOperation;
+  single?: boolean;
+};
+
+type TableQueryPayload = BaseQueryPayload & {
+  table: string;
+  operation: 'select' | 'insert' | 'update';
   columns?: string | string[];
   filters?: Record<string, unknown>;
   order?: OrderConfig;
   limit?: number;
-  single?: boolean;
   data?: unknown;
 };
 
-type QueryResponse<T = unknown> = {
+export type RpcArgs = unknown[] | Record<string, unknown>;
+
+type RpcQueryPayload = BaseQueryPayload & {
+  operation: 'rpc';
+  functionName: string;
+  args?: RpcArgs;
+};
+
+export type QueryPayload = TableQueryPayload | RpcQueryPayload;
+
+export type QueryResponse<T = unknown> = {
   data: T;
   error: Error | null;
 };
@@ -32,6 +46,17 @@ class LocalDatabaseClient {
 
   from(table: string) {
     return new LocalTableQueryBuilder(this, table);
+  }
+
+  rpc<T = unknown>(functionName: string, args?: RpcArgs, options: { single?: boolean } = {}) {
+    const payload: RpcQueryPayload = {
+      operation: 'rpc',
+      functionName,
+      ...(args !== undefined ? { args } : {}),
+      ...(options.single !== undefined ? { single: options.single } : {}),
+    };
+
+    return this.execute<T>(payload);
   }
 
   async execute<T = unknown>(payload: QueryPayload): Promise<QueryResponse<T>> {
@@ -56,12 +81,11 @@ class LocalDatabaseClient {
         return { data: null as T, error: new Error(body.error) };
       }
 
-      return { data: body?.data as T, error: null };
+      return { data: (body?.data ?? null) as T, error: null };
     } catch (error) {
       if (error instanceof Error) {
         return { data: null as T, error };
       }
-
       return { data: null as T, error: new Error('Unexpected error executing database request') };
     }
   }
@@ -82,7 +106,7 @@ class LocalTableQueryBuilder {
   }
 
   insert<T = unknown>(rows: T | T[]) {
-    const payload: QueryPayload = {
+    const payload: TableQueryPayload = {
       table: this.table,
       operation: 'insert',
       data: Array.isArray(rows) ? rows : [rows],
@@ -97,7 +121,7 @@ class LocalTableQueryBuilder {
   }
 }
 
-class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<any>> {
+class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<unknown>> {
   private readonly client: LocalDatabaseClient;
   private readonly table: string;
   private columns: string | string[] = '*';
@@ -142,7 +166,7 @@ class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<any>> {
     return this;
   }
 
-  private buildPayload(): QueryPayload {
+  private buildPayload(): TableQueryPayload {
     return {
       table: this.table,
       operation: 'select',
@@ -154,19 +178,19 @@ class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<any>> {
     };
   }
 
-  async execute() {
+  async execute(): Promise<QueryResponse<unknown>> {
     return this.client.execute(this.buildPayload());
   }
 
-  then<TResult1 = QueryResponse<any>, TResult2 = never>(
-    onfulfilled?: ((value: QueryResponse<any>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+  then<TResult1 = QueryResponse<unknown>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined | null,
   ) {
     return this.execute().then(onfulfilled, onrejected);
   }
 }
 
-class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<any>> {
+class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<unknown>> {
   private readonly client: LocalDatabaseClient;
   private readonly table: string;
   private data: Record<string, unknown> = {};
@@ -196,7 +220,7 @@ class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<any>> {
     return this;
   }
 
-  private buildPayload(): QueryPayload {
+  private buildPayload(): TableQueryPayload {
     return {
       table: this.table,
       operation: 'update',
@@ -206,12 +230,12 @@ class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<any>> {
     };
   }
 
-  async execute() {
+  async execute(): Promise<QueryResponse<unknown>> {
     return this.client.execute(this.buildPayload());
   }
 
-  then<TResult1 = QueryResponse<any>, TResult2 = never>(
-    onfulfilled?: ((value: QueryResponse<any>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+  then<TResult1 = QueryResponse<unknown>, TResult2 = never>(
+    onfulfilled?: ((value: QueryResponse<unknown>) => TResult1 | PromiseLike<TResult1>) | undefined | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined | null,
   ) {
     return this.execute().then(onfulfilled, onrejected);
