@@ -94,7 +94,6 @@ class LocalDatabaseClient {
 
 class LocalTableQueryBuilder {
   private readonly client: LocalDatabaseClient;
-
   private readonly table: string;
 
   constructor(client: LocalDatabaseClient, table: string) {
@@ -125,17 +124,11 @@ class LocalTableQueryBuilder {
 
 class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<unknown>> {
   private readonly client: LocalDatabaseClient;
-
   private readonly table: string;
-
   private columns: string | string[] = '*';
-
   private filters: Record<string, unknown> = {};
-
   private orderConfig?: OrderConfig;
-
   private limitValue?: number;
-
   private singleResult = false;
 
   constructor(client: LocalDatabaseClient, table: string) {
@@ -200,13 +193,9 @@ class LocalSelectQueryBuilder implements PromiseLike<QueryResponse<unknown>> {
 
 class LocalUpdateQueryBuilder implements PromiseLike<QueryResponse<unknown>> {
   private readonly client: LocalDatabaseClient;
-
   private readonly table: string;
-
   private data: Record<string, unknown> = {};
-
   private filters: Record<string, unknown> = {};
-
   private singleResult = false;
 
   constructor(client: LocalDatabaseClient, table: string) {
