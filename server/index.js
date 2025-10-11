@@ -29,6 +29,7 @@ const pool = new Pool({
 
 const sanitizeIdentifier = (value) => typeof value === 'string' && /^[a-zA-Z0-9_]+$/.test(value);
 const quoteIdentifier = (value) => `"${value}"`;
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const buildWhereClause = (filters = {}, startIndex = 1) => {
   const clauses = [];
@@ -90,17 +91,59 @@ app.post('/api/query', async (req, res) => {
     limit,
     single = false,
     data,
+    functionName,
+    args,
   } = req.body;
-
-  if (!sanitizeIdentifier(table)) {
-    return res.status(400).json({ error: 'Invalid table name supplied.' });
-  }
 
   if (!operation) {
     return res.status(400).json({ error: 'Operation type is required.' });
   }
 
+  if (operation !== 'rpc' && !sanitizeIdentifier(table)) {
+    return res.status(400).json({ error: 'Invalid table name supplied.' });
+  }
+
   try {
+    if (operation === 'rpc') {
+      if (!functionName || !sanitizeIdentifier(functionName)) {
+        return res.status(400).json({ error: 'Invalid function name supplied.' });
+      }
+
+      if (args !== undefined && args !== null && !Array.isArray(args) && !isPlainObject(args)) {
+        return res.status(400).json({ error: 'RPC arguments must be an array or object.' });
+      }
+
+      const rpcArgs = args === undefined || args === null ? [] : args;
+
+      let rpcQuery = `SELECT * FROM ${quoteIdentifier(functionName)}()`;
+      let rpcValues = [];
+
+      if (Array.isArray(rpcArgs) && rpcArgs.length > 0) {
+        const placeholders = rpcArgs.map((_, index) => `$${index + 1}`).join(', ');
+        rpcQuery = `SELECT * FROM ${quoteIdentifier(functionName)}(${placeholders})`;
+        rpcValues = [...rpcArgs];
+      } else if (isPlainObject(rpcArgs)) {
+        const entries = Object.entries(rpcArgs);
+
+        entries.forEach(([key]) => {
+          if (!sanitizeIdentifier(key)) {
+            throw new Error(`Invalid RPC argument name: ${key}`);
+          }
+        });
+
+        if (entries.length > 0) {
+          const placeholders = entries
+            .map(([key], index) => `${key} => $${index + 1}`)
+            .join(', ');
+          rpcQuery = `SELECT * FROM ${quoteIdentifier(functionName)}(${placeholders})`;
+          rpcValues = entries.map(([, value]) => value);
+        }
+      }
+
+      const result = await pool.query(rpcQuery, rpcValues);
+      return res.json({ data: single ? result.rows[0] ?? null : result.rows, error: null });
+    }
+
     if (operation === 'select') {
       const selectedColumns = parseColumns(columns);
       const { clause, values } = buildWhereClause(filters);
