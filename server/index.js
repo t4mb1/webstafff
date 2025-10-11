@@ -90,17 +90,34 @@ app.post('/api/query', async (req, res) => {
     limit,
     single = false,
     data,
+    functionName,
+    args = [],
   } = req.body;
-
-  if (!sanitizeIdentifier(table)) {
-    return res.status(400).json({ error: 'Invalid table name supplied.' });
-  }
 
   if (!operation) {
     return res.status(400).json({ error: 'Operation type is required.' });
   }
 
+  if (operation !== 'rpc' && !sanitizeIdentifier(table)) {
+    return res.status(400).json({ error: 'Invalid table name supplied.' });
+  }
+
   try {
+    if (operation === 'rpc') {
+      if (!functionName || !sanitizeIdentifier(functionName)) {
+        return res.status(400).json({ error: 'Invalid function name supplied.' });
+      }
+
+      if (!Array.isArray(args)) {
+        return res.status(400).json({ error: 'RPC arguments must be provided as an array.' });
+      }
+
+      const placeholders = args.map((_, index) => `$${index + 1}`).join(', ');
+      const query = `SELECT * FROM ${quoteIdentifier(functionName)}(${placeholders})`;
+      const result = await pool.query(query, args);
+      return res.json({ data: single ? result.rows[0] ?? null : result.rows, error: null });
+    }
+
     if (operation === 'select') {
       const selectedColumns = parseColumns(columns);
       const { clause, values } = buildWhereClause(filters);
